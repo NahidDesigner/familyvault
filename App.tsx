@@ -38,70 +38,96 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewType>('home');
   const [filter, setFilter] = useState<'all' | 'mine'>('all');
   const [dbError, setDbError] = useState<string | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
 
   const loadData = async (config: CloudConfig) => {
-    setDbError(null);
-    const isSupabase = initSupabase(config);
-    
-    if (isSupabase) {
-      const userRes = await getSupabaseUsers();
-      const mediaRes = await getSupabaseMedia();
+    try {
+      setDbError(null);
+      const isSupabase = initSupabase(config);
       
-      if (userRes.errorType === 'missing_tables') {
-        setDbError("Supabase Tables Missing! Falling back to Local Storage.");
-        loadLocalData();
-        return;
-      }
-
-      if (userRes.data && userRes.data.length > 0) {
-        setUsers(userRes.data);
-      } else {
-        setUsers(INITIAL_USERS);
-        try {
-          for (const u of INITIAL_USERS) {
-            await saveSupabaseUser(u);
-          }
-        } catch (e) {
-          console.warn("Could not sync initial users to Supabase.");
+      if (isSupabase) {
+        const userRes = await getSupabaseUsers();
+        const mediaRes = await getSupabaseMedia();
+        
+        if (userRes.errorType === 'missing_tables') {
+          setDbError("Supabase Tables Missing! Falling back to Local Storage.");
+          loadLocalData();
+          return;
         }
+
+        if (userRes.data && userRes.data.length > 0) {
+          setUsers(userRes.data);
+        } else {
+          setUsers(INITIAL_USERS);
+          try {
+            for (const u of INITIAL_USERS) {
+              await saveSupabaseUser(u);
+            }
+          } catch (e) {
+            console.warn("Could not sync initial users to Supabase.");
+          }
+        }
+        
+        if (mediaRes.data) setMediaItems(mediaRes.data);
+      } else {
+        loadLocalData();
       }
-      
-      if (mediaRes.data) setMediaItems(mediaRes.data);
-    } else {
-      loadLocalData();
+    } catch (err: any) {
+      console.error("Critical error in loadData:", err);
+      setInitError("Failed to load cloud data. Check your internet or configuration.");
+      loadLocalData(); // Fallback
     }
   };
 
   const loadLocalData = () => {
-    const savedMedia = localStorage.getItem(STORAGE_KEY);
-    if (savedMedia) setMediaItems(JSON.parse(savedMedia));
+    try {
+      const savedMedia = localStorage.getItem(STORAGE_KEY);
+      if (savedMedia) setMediaItems(JSON.parse(savedMedia));
 
-    const savedUsers = localStorage.getItem(USERS_KEY);
-    if (savedUsers) {
-      setUsers(JSON.parse(savedUsers));
-    } else {
+      const savedUsers = localStorage.getItem(USERS_KEY);
+      if (savedUsers) {
+        setUsers(JSON.parse(savedUsers));
+      } else {
+        setUsers(INITIAL_USERS);
+        localStorage.setItem(USERS_KEY, JSON.stringify(INITIAL_USERS));
+      }
+    } catch (e) {
+      console.error("Local storage error:", e);
       setUsers(INITIAL_USERS);
-      localStorage.setItem(USERS_KEY, JSON.stringify(INITIAL_USERS));
     }
   };
 
   useEffect(() => {
-    const savedConfig = localStorage.getItem(CONFIG_KEY);
-    let currentConf = cloudConfig;
-    if (savedConfig) {
-      currentConf = JSON.parse(savedConfig);
-      setCloudConfig(currentConf);
-    }
+    const startApp = async () => {
+      try {
+        const savedConfig = localStorage.getItem(CONFIG_KEY);
+        let currentConf = cloudConfig;
+        if (savedConfig) {
+          try {
+            currentConf = JSON.parse(savedConfig);
+            setCloudConfig(currentConf);
+          } catch (e) {
+            console.warn("Corrupted config in local storage, using defaults.");
+          }
+        }
 
-    loadData(currentConf).then(() => {
-      const savedSession = localStorage.getItem('active_session_user');
-      if (savedSession) {
-        const parsed = JSON.parse(savedSession);
-        // Find the most recent user data in case PIN/Avatar changed
-        setCurrentUser(parsed);
+        await loadData(currentConf);
+        
+        const savedSession = localStorage.getItem('active_session_user');
+        if (savedSession) {
+          try {
+            const parsed = JSON.parse(savedSession);
+            setCurrentUser(parsed);
+          } catch (e) {}
+        }
+      } catch (err: any) {
+        setInitError(err.message || "Initialization failed");
+      } finally {
+        setIsInitializing(false);
       }
-      setIsInitializing(false);
-    });
+    };
+
+    startApp();
   }, []);
 
   useEffect(() => {
@@ -117,7 +143,11 @@ const App: React.FC = () => {
   }, [mediaItems, isInitializing, cloudConfig.database.provider]);
 
   useEffect(() => {
-    if (!isInitializing) localStorage.setItem(CONFIG_KEY, JSON.stringify(cloudConfig));
+    if (!isInitializing) {
+      try {
+        localStorage.setItem(CONFIG_KEY, JSON.stringify(cloudConfig));
+      } catch (e) {}
+    }
   }, [cloudConfig, isInitializing]);
 
   const handleUserSelect = (user: CloudUser) => {
@@ -188,7 +218,30 @@ const App: React.FC = () => {
   if (isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F2F2F7]">
-        <div className="w-10 h-10 border-4 border-[#007AFF] border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-[#007AFF] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-[13px] text-[#8E8E93] font-medium animate-pulse">Initializing Vault...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (initError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F2F2F7] p-8 text-center">
+        <div className="max-w-sm">
+          <div className="w-16 h-16 bg-[#FF3B30] rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          </div>
+          <h2 className="text-[24px] font-bold mb-2">Startup Error</h2>
+          <p className="text-[#8E8E93] mb-8">{initError}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full bg-[#007AFF] text-white py-3 rounded-xl font-bold ios-active"
+          >
+            Retry Connection
+          </button>
+        </div>
       </div>
     );
   }

@@ -5,12 +5,18 @@ import { CloudUser, MediaItem, CloudConfig } from '../types';
 let supabase: any = null;
 
 export const initSupabase = (config: CloudConfig) => {
-  if (config.database.provider === 'supabase' && config.database.supabaseUrl && config.database.supabaseAnonKey) {
+  if (
+    config.database.provider === 'supabase' && 
+    config.database.supabaseUrl && 
+    config.database.supabaseUrl.startsWith('http') &&
+    config.database.supabaseAnonKey
+  ) {
     try {
       supabase = createClient(config.database.supabaseUrl, config.database.supabaseAnonKey);
       return true;
     } catch (e) {
       console.error('Supabase Initialization Error:', e);
+      supabase = null;
       return false;
     }
   }
@@ -25,12 +31,16 @@ const isTableMissingError = (error: any) => {
 
 export const getSupabaseUsers = async (): Promise<{ data: CloudUser[] | null, errorType?: 'missing_tables' | 'other' }> => {
   if (!supabase) return { data: null };
-  const { data, error } = await supabase.from('users').select('*');
-  if (error) {
-    console.error('Error fetching users:', error.message);
-    return { data: null, errorType: isTableMissingError(error) ? 'missing_tables' : 'other' };
+  try {
+    const { data, error } = await supabase.from('users').select('*');
+    if (error) {
+      console.error('Error fetching users:', error.message);
+      return { data: null, errorType: isTableMissingError(error) ? 'missing_tables' : 'other' };
+    }
+    return { data };
+  } catch (e) {
+    return { data: null, errorType: 'other' };
   }
-  return { data };
 };
 
 export const saveSupabaseUser = async (user: CloudUser) => {
@@ -50,12 +60,16 @@ export const deleteSupabaseUser = async (userId: string) => {
 
 export const getSupabaseMedia = async (): Promise<{ data: MediaItem[] | null, errorType?: 'missing_tables' | 'other' }> => {
   if (!supabase) return { data: null };
-  const { data, error } = await supabase.from('media_items').select('*').order('timestamp', { ascending: false });
-  if (error) {
-    console.error('Error fetching media:', error.message);
-    return { data: null, errorType: isTableMissingError(error) ? 'missing_tables' : 'other' };
+  try {
+    const { data, error } = await supabase.from('media_items').select('*').order('timestamp', { ascending: false });
+    if (error) {
+      console.error('Error fetching media:', error.message);
+      return { data: null, errorType: isTableMissingError(error) ? 'missing_tables' : 'other' };
+    }
+    return { data };
+  } catch (e) {
+    return { data: null, errorType: 'other' };
   }
-  return { data };
 };
 
 export const saveSupabaseMedia = async (item: MediaItem) => {

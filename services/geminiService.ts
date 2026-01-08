@@ -1,8 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const SUPPORTED_IMAGE_MIMES = [
   'image/png',
   'image/jpeg',
@@ -20,6 +18,14 @@ export async function analyzeMedia(base64Data: string, mimeType: string) {
   }
 
   try {
+    // Initialize AI client lazily to prevent crashes if process.env is not defined at load time
+    const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+    if (!apiKey) {
+      console.warn("API_KEY is missing. Skipping AI analysis.");
+      return { description: "Shared media upload", tags: ["Gallery"] };
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
