@@ -18,14 +18,12 @@ export async function analyzeMedia(base64Data: string, mimeType: string) {
   }
 
   try {
-    // Initialize AI client lazily to prevent crashes if process.env is not defined at load time
-    const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
-    if (!apiKey) {
-      console.warn("API_KEY is missing. Skipping AI analysis.");
-      return { description: "Shared media upload", tags: ["Gallery"] };
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    // Fix: Initialize GoogleGenAI strictly using process.env.API_KEY in a named object parameter.
+    // The application must assume API_KEY is pre-configured and accessible.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // Fix: Use the correct model name and generateContent method following guidelines.
+    // Use gemini-3-flash-preview for general vision tasks.
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
@@ -46,25 +44,32 @@ export async function analyzeMedia(base64Data: string, mimeType: string) {
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            description: { type: Type.STRING },
+            description: {
+              type: Type.STRING,
+              description: 'Brief description of the image content.',
+            },
             tags: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
+              description: 'Three relevant one-word tags.',
             },
           },
           required: ["description", "tags"],
+          propertyOrdering: ["description", "tags"],
         },
       },
     });
 
-    if (!response.text) {
+    // Fix: Access .text property directly (not a method call) as per GenerateContentResponse definition.
+    const output = response.text?.trim();
+    if (!output) {
         throw new Error("Empty response from Gemini");
     }
 
-    return JSON.parse(response.text);
+    return JSON.parse(output);
   } catch (error) {
     console.error("AI Analysis failed:", error);
-    // Return a graceful fallback instead of throwing
+    // Return a graceful fallback instead of throwing to ensure UI stability
     return { description: "Shared media upload", tags: ["Gallery"] };
   }
 }

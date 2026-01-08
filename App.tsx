@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { CloudUser, MediaItem, CloudConfig } from './types';
-import { INITIAL_USERS, STORAGE_KEY, USERS_KEY, CONFIG_KEY, ROOT_ADMIN_ID } from './constants';
-import Header from './components/Header';
-import Gallery from './components/Gallery';
-import Uploader from './components/Uploader';
-import UserSelector from './components/UserSelector';
-import AdminDashboard from './components/AdminDashboard';
+import { CloudUser, MediaItem, CloudConfig } from './types.ts';
+import { INITIAL_USERS, STORAGE_KEY, USERS_KEY, CONFIG_KEY, ROOT_ADMIN_ID } from './constants.ts';
+import Header from './components/Header.tsx';
+import Gallery from './components/Gallery.tsx';
+import Uploader from './components/Uploader.tsx';
+import UserSelector from './components/UserSelector.tsx';
+import AdminDashboard from './components/AdminDashboard.tsx';
 import { 
   initSupabase, 
   getSupabaseUsers, 
@@ -15,7 +15,7 @@ import {
   saveSupabaseMedia,
   deleteSupabaseUser,
   deleteSupabaseMedia 
-} from './services/supabaseService';
+} from './services/supabaseService.ts';
 
 type ViewType = 'home' | 'gallery';
 
@@ -177,7 +177,6 @@ const App: React.FC = () => {
       try { await saveSupabaseUser(user); } catch (e) {}
     }
 
-    // Update current user if they just edited themselves
     if (currentUser && currentUser.id === user.id) {
         setCurrentUser(user);
         localStorage.setItem('active_session_user', JSON.stringify(user));
