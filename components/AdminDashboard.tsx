@@ -79,7 +79,7 @@ CREATE TABLE media_items (
     if (!file) return;
 
     if (!settings.storage.folderId || !settings.storage.apiKey) {
-      alert("Please configure Google Drive settings first!");
+      alert("Please go to the 'Configuration' tab and set your Google Drive Folder ID and API Key first.");
       setActiveTab('cloud');
       if (avatarInputRef.current) avatarInputRef.current.value = '';
       return;
@@ -92,7 +92,7 @@ CREATE TABLE media_items (
       setAvatar(previewUrl);
     } catch (error: any) {
       console.error("Avatar upload failed:", error);
-      alert("Error: " + error.message);
+      alert(error.message);
     } finally {
       setIsAvatarUploading(false);
       if (avatarInputRef.current) avatarInputRef.current.value = '';
@@ -200,7 +200,7 @@ CREATE TABLE media_items (
                                 accept="image/*"
                             />
                             <p className="text-[11px] text-[#8E8E93] leading-tight max-w-[150px] truncate">
-                              {avatar || 'Using default avatar'}
+                              {avatar ? 'Upload successful' : 'Using default avatar'}
                             </p>
                         </div>
                     </div>
@@ -381,7 +381,7 @@ CREATE TABLE media_items (
                               </p>
                             </div>
                             <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100 text-[12px] text-blue-700">
-                              <b>Drive is the Storage:</b> All photos, videos, and profile avatars go to Drive. 
+                              <b>Note:</b> API Keys usually only allow <i>authenticated</i> writes. Make sure the target folder's sharing settings allow public editing if you aren't using OAuth.
                             </div>
                           </div>
                         ) : (
