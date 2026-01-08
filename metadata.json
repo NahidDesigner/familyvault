@@ -1,0 +1,7 @@
+{
+  "name": "Shared Family Cloud",
+  "description": "A collaborative media vault where multiple users can upload photos and videos to a central storage. Features AI-powered auto-tagging and organization.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
